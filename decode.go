@@ -222,6 +222,13 @@ func (md *MetaData) unify(data any, rv reflect.Value) error {
 		if err != nil {
 			return md.parseErr(err)
 		}
+		// assume the Unmarshaler did it's job and decoded all fields
+		tmap, ok := data.(map[string]any)
+		if ok {
+			for key := range tmap {
+				md.decoded[md.context.add(key).String()] = struct{}{}
+			}
+		}
 		return nil
 	}
 	if v, ok := rvi.(encoding.TextUnmarshaler); ok {
