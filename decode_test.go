@@ -1018,7 +1018,7 @@ func TestCustomEncode(t *testing.T) {
 // Test for #341
 func TestCustomDecode(t *testing.T) {
 	var outer Outer
-	_, err := Decode(`
+	meta, err := Decode(`
 		Int = 10
 		Enum = "OTHER_VALUE"
 		Slice = ["text1", "text2"]
@@ -1035,6 +1035,9 @@ func TestCustomDecode(t *testing.T) {
 	}
 	if fmt.Sprint(outer.Slice.value) != fmt.Sprint([]string{"text1", "text2"}) {
 		t.Errorf("\nhave:\n%v\nwant:\n%v\n", outer.Slice.value, []string{"text1", "text2"})
+	}
+	if len(meta.Undecoded()) > 0 {
+		t.Errorf("\ncustom decode leaves unencoded fields: %v\n", meta.Undecoded())
 	}
 }
 
@@ -1142,5 +1145,32 @@ func BenchmarkKey(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		k.String()
+	}
+}
+
+type CustomStruct struct {
+	Foo string `json:"foo"`
+}
+
+func (cs *CustomStruct) UnmarshalTOML(data interface{}) error {
+	d, _ := data.(map[string]interface{})
+	cs.Foo = d["foo"].(string)
+	return nil
+}
+
+func TestDecodeCustomStruct(t *testing.T) {
+	var cs CustomStruct
+	meta, err := Decode(`
+		foo = "bar"
+	`, &cs)
+	if err != nil {
+		t.Fatalf("Decode failed: %s", err)
+	}
+
+	if cs.Foo != "bar" {
+		t.Errorf("\nhave:\n%v\nwant:\n%v\n", cs.Foo, "bar")
+	}
+	if len(meta.Undecoded()) > 0 {
+		t.Errorf("\ncustom decode leaves unencoded fields: %v\n", meta.Undecoded())
 	}
 }
