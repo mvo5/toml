@@ -1149,19 +1149,31 @@ func BenchmarkKey(b *testing.B) {
 }
 
 type CustomStruct struct {
-	Foo string `json:"foo"`
+	Foo        string
+	TblB       int64
+	TblInlineC int64
 }
 
 func (cs *CustomStruct) UnmarshalTOML(data interface{}) error {
 	d, _ := data.(map[string]interface{})
 	cs.Foo = d["foo"].(string)
+	cs.TblB = d["tbl"].(map[string]interface{})["b"].(int64)
+	cs.TblInlineC = d["tbl"].(map[string]interface{})["inline"].(map[string]interface{})["c"].(int64)
+
 	return nil
 }
 
-func TestDecodeCustomStruct(t *testing.T) {
+func TestDecodeCustomStructMarkedDecoded(t *testing.T) {
 	var cs CustomStruct
 	meta, err := Decode(`
-		foo = "bar"
+foo = "bar"
+a   = 1
+arr = [2]
+
+[tbl]
+b = 3
+
+inline = {c = 4}
 	`, &cs)
 	if err != nil {
 		t.Fatalf("Decode failed: %s", err)
@@ -1170,6 +1182,16 @@ func TestDecodeCustomStruct(t *testing.T) {
 	if cs.Foo != "bar" {
 		t.Errorf("\nhave:\n%v\nwant:\n%v\n", cs.Foo, "bar")
 	}
+	if cs.TblB != 3 {
+		t.Errorf("\nhave:\n%v\nwant:\n%v\n", cs.TblB, 3)
+	}
+	if cs.TblInlineC != 4 {
+		t.Errorf("\nhave:\n%v\nwant:\n%v\n", cs.TblB, 4)
+	}
+	// Note that even though the custom unmarshaler did not decode
+	// all fields as far as the metadata is concerned they are handlded.
+	// It is the job of the unmarshaler to ensure this or we would need
+	// a more powerful interface like UnmarshalTOML(data any, md *MetaData)
 	if len(meta.Undecoded()) > 0 {
 		t.Errorf("\ncustom decode leaves unencoded fields: %v\n", meta.Undecoded())
 	}
